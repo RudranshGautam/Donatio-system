@@ -1,0 +1,56 @@
+<!-- organization-dashboard.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organization Dashboard</title>
+</head>
+<body>
+    <h2>Create Campaign</h2>
+    <form id="campaignForm">
+        <input type="text" id="campaignName" placeholder="Campaign Name" required>
+        <textarea id="campaignDescription" placeholder="Campaign Description" required></textarea>
+        <input type="number" id="targetAmount" placeholder="Target Amount" required>
+        <button type="submit">Create Campaign</button>
+    </form>
+
+    <!-- Include Axios CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        document.getElementById('campaignForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('campaignName').value;
+            const description = document.getElementById('campaignDescription').value;
+            const targetAmount = document.getElementById('targetAmount').value;
+
+            try {
+                const response = await axios.post('/create', 
+                    { 
+                        name, 
+                        description, 
+                        target_amount: targetAmount 
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    }
+                );
+
+                alert('Campaign created successfully!');
+            } catch (error) {
+                if (error.response && error.response.data && error.response.data.message) {
+                    alert(error.response.data.message);
+                } else {
+                    alert('An error occurred. Please try again.');
+                }
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
