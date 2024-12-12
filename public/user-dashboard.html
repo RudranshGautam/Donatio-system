@@ -1,0 +1,120 @@
+<!-- user-dashboard.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Include Razorpay Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <h2>Available Campaigns</h2>
+    <div id="campaignsList"></div>
+
+    <script>
+        const fetchCampaigns = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get('/campaigns', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.status === 200) {
+                    const campaigns = response.data;
+                    const campaignsList = document.getElementById('campaignsList');
+                    campaignsList.innerHTML = '';
+
+                    campaigns.forEach(campaign => {
+                        const campaignElement = document.createElement('div');
+                        campaignElement.innerHTML = `
+                            <h3>${campaign.name}</h3>
+                            <p>${campaign.description}</p>
+                            <p>Target Amount: ₹${campaign.target_amount}</p>
+                            <p>Raised Amount: ₹${campaign.raised_amount}</p>
+                            <button onclick="donate(${campaign.id})">Donate</button>
+                        `;
+                        campaignsList.appendChild(campaignElement);
+                    });
+                } else {
+                    alert('Failed to load campaigns. Please try again later.');
+                }
+            } catch (error) {
+                console.error('Error fetching campaigns:', error);
+                alert('Failed to load campaigns. Please try again later.');
+            }
+        };
+
+        const donate = async (campaignId) => {
+            const amount = prompt('Enter amount to donate');
+            if (!amount || isNaN(amount) || amount <= 0) {
+                alert('Please enter a valid donation amount.');
+                return;
+            }
+
+            try {
+                // Create a Razorpay order from the backend
+                const response = await axios.post(
+                    '/donate/initiate',
+                    { campaign_id: campaignId, amount },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    }
+                );
+
+                const { order_id, key } = response.data;
+
+                // Configure Razorpay checkout
+                const options = {
+                    key,
+                    amount: amount * 100, // Convert to paise
+                    currency: "INR",
+                    name: "Donation Platform",
+                    description: "Donate to your selected campaign",
+                    order_id, // Razorpay order ID
+                    handler: async (response) => {
+                        // Capture payment in backend
+                        const paymentResponse = await axios.post(
+                            '/donate/capture',
+                            {
+                                payment_id: response.razorpay_payment_id,
+                                order_id: response.razorpay_order_id,
+                                campaign_id: campaignId,
+                                amount,
+                            },
+                            {
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                }
+                            }
+                        );
+
+                        alert(paymentResponse.data.message);
+                        fetchCampaigns(); // Refresh campaigns list to update raised amount
+                    },
+                    prefill: {
+                        name: "Your Name",
+                        email: "your-email@example.com",
+                    },
+                    theme: {
+                        color: "#F37254",
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+            } catch (error) {
+                console.error('Error during payment process:', error);
+                alert('An error occurred. Please try again.');
+            }
+        };
+
+        fetchCampaigns();
+    </script>
+</body>
+</html>
